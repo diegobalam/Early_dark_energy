@@ -2551,7 +2551,7 @@ double V_e_scf(
     double scf_alpha  = pba->scf_parameters[1];
     double scf_A      = pba->scf_parameters[2];
     double scf_B      = pba->scf_parameters[3];
-    return 4152.39*pow(scf_A,2)*pow(scf_alpha,2)*pow(1-cos(phi*2.435e27/scf_alpha),scf_lambda);
+    return 4152.39*exp(lambda*phi);
 }
 
 double V_scf(
@@ -2561,7 +2561,7 @@ double V_scf(
     double scf_alpha  = pba->scf_parameters[1];
     double scf_A      = pba->scf_parameters[2];
     double scf_B      = pba->scf_parameters[3];
-    return 4152.39*pow(scf_A,2)*pow(scf_alpha,2)*pow(1-cos(phi*2.435e27/scf_alpha),scf_lambda) + scf_B*3.968e-8 ;
+    return 4152.39*exp(lambda*phi) + scf_B*3.968e-8 ;
 }
 
 double dV_scf(
@@ -2571,7 +2571,7 @@ double dV_scf(
     double scf_alpha  = pba->scf_parameters[1];
     double scf_A      = pba->scf_parameters[2];
     double scf_B      = pba->scf_parameters[3];
-    return 4152.39*2.435e27*pow(scf_A,2)*scf_alpha*scf_lambda*sin(phi*2.435e27/scf_alpha)*pow(1-cos(phi*2.435e27/scf_alpha),scf_lambda-1);
+    return -lambda*4152.39*exp(lambda*phi);
 }
 
 double ddV_scf(
@@ -2583,7 +2583,7 @@ double ddV_scf(
     double scf_B      = pba->scf_parameters[3];
     
     return
-    4152.39*2.435e27*2.435e27*pow(scf_A,2)*scf_lambda*pow(1-cos(phi*2.435e27/scf_alpha),scf_lambda-1)*cos(phi*2.435e27/scf_alpha) + 4152.39*2.435e27*2.435e27*pow(scf_A,2)*scf_lambda*(scf_lambda-1)*pow(1-cos(phi*2.435e27/scf_alpha),scf_lambda-2)*pow(sin(phi*2.435e27/scf_alpha),2) ;
+    lambda*lambda*4152.39*exp(lambda*phi) ;
     
 }
 
