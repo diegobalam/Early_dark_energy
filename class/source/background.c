@@ -365,6 +365,33 @@ int background_functions(
     //printf(" a= %e, Omega_scf = %f, \n ",a_rel, pvecback[pba->index_bg_rho_scf]/rho_tot );
   }
 
+  if (pba->has_k_essence == _TRUE_) {
+    phi = pvecback_B[pba->index_bi_phi_scf];
+    phi_prime = pvecback_B[pba->index_bi_phi_prime_scf];
+    pvecback[pba->index_bg_phi_scf] = phi; // value of the scalar field phi
+    pvecback[pba->index_bg_phi_prime_scf] = phi_prime; // value of the scalar field phi derivative wrt conformal time
+    pvecback[pba->index_bg_V_e_scf] = V_e_scf(pba,phi);
+    pvecback[pba->index_bg_V_scf] = V_scf(pba,phi); //V_scf(pba,phi); //write here potential as function of phi
+    pvecback[pba->index_bg_dV_scf] = dV_scf(pba,phi); // dV_scf(pba,phi); //potential' as function of phi
+    pvecback[pba->index_bg_ddV_scf] = ddV_scf(pba,phi); // ddV_scf(pba,phi); //potential'' as function of phi
+ //k_essence 
+ //H function and derivties	  
+    pvecback[pba->index_bg_h_kessence]=h_y
+    pvecback[pba->index_bg_dh_phi_kessence]=dh_y_phi
+    pvecback[pba->index_bg_dh_x_kessence]=dh_y_x
+ //Density and pressure  	  
+    pvecback[pba->index_bg_rho_k_essence] = (-phi_prime*phi_prime/(2*a*a)-h_y*V_essence(pba,phi) +2*phi_prime*phi_prime/(2*a*a)*(1+dh_y_x*V_essence(pba,phi)))/3.; // energy of the kessence field. The field units are set automatically by setting the initial conditions
+    pvecback[pba->index_bg_p_kessence] =(phi_prime*phi_prime/(2*a*a) + h_y*V_kessence(pba,phi))/3.; // pressure of the kessence field
+    rho_tot += pvecback[pba->index_bg_rho_kessence];
+    p_tot += pvecback[pba->index_bg_p_kessence];
+    dp_dloga += 0.0; /** <-- This depends on a_prime_over_a, so we cannot add it now! */
+    //divide relativistic & nonrelativistic (not very meaningful for oscillatory models)
+    rho_r += 3.*pvecback[pba->index_bg_p_kessence]; //field pressure contributes radiation
+    rho_m += pvecback[pba->index_bg_rho_kessence] - 3.* pvecback[pba->index_bg_p_kessence]; //the rest contributes matter
+    //printf(" a= %e, Omega_scf = %f, \n ",a_rel, pvecback[pba->index_bg_rho_scf]/rho_tot );
+  	
+  }
+
   /* ncdm */
   if (pba->has_ncdm == _TRUE_) {
 
@@ -473,6 +500,20 @@ int background_functions(
                "fEDE = %e instead of < 0.5",pvecback[pba->index_bg_V_e_scf]/pvecback[pba->index_bg_rho_crit]/3 );
   }
 
+  if (pba->has_k_essence == _TRUE_) {
+    pvecback[pba->index_bg_rho_crit] = rho_tot-pba->K/a/a;
+    class_test(pvecback[pba->index_bg_V_e_scf]/pvecback[pba->index_bg_rho_crit]/3 >= 0.50,
+               pba->error_message,
+               "fEDE = %e instead of < 0.5",pvecback[pba->index_bg_V_e_scf]/pvecback[pba->index_bg_rho_crit]/3 );
+  }
+	
+  if (pba->has_k_essence == _TRUE_){
+    /** The contribution of scf was not added to dp_dloga, add p_scf_prime here: */
+    pvecback[pba->index_bg_p_prime_kessence] = pvecback[pba->index_bg_phi_prime_scf]*
+      (-pvecback[pba->index_bg_phi_prime_scf]*pvecback[pba->index_bg_H]/a-2./3.*pvecback[pba->index_bg_dV_scf]);
+    pvecback[pba->index_bg_p_tot_prime] += pvecback[pba->index_bg_p_prime_kessence];
+  }
+	
                        
                              
                              
@@ -750,6 +791,12 @@ int background_init(
              pba->error_message,
                pba->error_message);
   }
+  
+   if (pba->has_k_essence == _TRUE_) {
+    class_call(background_find_f_and_zc(ppr,pba),
+             pba->error_message,
+               pba->error_message);
+  }
   return _SUCCESS_;
 
 }
@@ -878,6 +925,7 @@ int background_indices(
   pba->has_dcdm = _FALSE_;
   pba->has_dr = _FALSE_;
   pba->has_scf = _FALSE_;
+  pba->has_k_essence=_FALSE_;
   pba->has_lambda = _FALSE_;
   pba->has_fld = _FALSE_;
   pba->has_ur = _FALSE_;
@@ -897,6 +945,9 @@ int background_indices(
 
   if (pba->Omega0_scf != 0.)
     pba->has_scf = _TRUE_;
+    
+  if (pba->Omega0_k_essence != 0.)
+    pba->has_k_essence = _TRUE_;
 
   if (pba->Omega0_lambda != 0.)
     pba->has_lambda = _TRUE_;
@@ -958,6 +1009,18 @@ int background_indices(
     
     // EDE-edit: potential without CC
   class_define_index(pba->index_bg_V_e_scf,pba->has_scf,index_bg,1);
+    //
+    
+    /* - indices for k_essence */
+  class_define_index(pba->index_bg_phi_scf,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_phi_prime_scf,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_V_scf,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_dV_scf,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_ddV_scf,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_rho_kessence,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_p_kessence,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_p_prime_kessence,pba->has_k_essence,index_bg,1);
+  class_define_index(pba->index_bg_V_e_scf,pba->has_k_essence,index_bg,1);
     //
 
 
@@ -1048,6 +1111,11 @@ int background_indices(
   /* -> scalar field and its derivative wrt conformal time (Zuma) */
   class_define_index(pba->index_bi_phi_scf,pba->has_scf,index_bi,1);
   class_define_index(pba->index_bi_phi_prime_scf,pba->has_scf,index_bi,1);
+  
+  
+  /* -> scalar field kessence and its derivative wrt conformal time (Zuma) */
+  class_define_index(pba->index_bi_phi_scf,pba->has_kessence,index_bi,1);
+  class_define_index(pba->index_bi_phi_prime_scf,pba->has_kessence,index_bi,1);
 
   /* End of {B} variables, now continue with {C} variables */
   pba->bi_B_size = index_bi;
@@ -1903,6 +1971,12 @@ int background_solve(
       printf("    Scalar field details:\n");
       printf("     -> Omega_scf = %g, wished %g\n",
              pvecback[pba->index_bg_rho_scf]/pvecback[pba->index_bg_rho_crit], pba->Omega0_scf);
+	     
+    if (pba->has_k_essence == _TRUE_){
+      printf("    Scalar field details:\n");
+      printf("     -> Omega_kessence = %g, wished %g\n",
+             pvecback[pba->index_bg_rho_kessence]/pvecback[pba->index_bg_rho_crit], pba->Omega0_kessence);
+	     
       if(pba->has_lambda == _TRUE_)
 	printf("     -> Omega_Lambda = %g, wished %g\n",
                pvecback[pba->index_bg_rho_lambda]/pvecback[pba->index_bg_rho_crit], pba->Omega0_lambda);
@@ -2058,6 +2132,21 @@ int background_initial_conditions(
     pvecback_integration[pba->index_bi_rho_fld] = rho_fld_today * exp(integral_fld);
 
   }
+  
+  if(pba->has_k_essence == _TRUE_){
+    scf_lambda = pba->scf_parameters[0];
+    if(pba->attractor_ic_scf == _TRUE_){
+      pvecback_integration[pba->index_bi_phi_scf] = -1/scf_lambda*
+        log(rho_rad*4./(3*pow(scf_lambda,2)-12))*pba->phi_ini_scf;
+      if (3.*pow(scf_lambda,2)-12. < 0){
+        /** - --> If there is no attractor solution for scf_lambda, assign some value. Otherwise would give a nan.*/
+    	pvecback_integration[pba->index_bi_phi_scf] = 1./scf_lambda;//seems to the work
+	if (pba->background_verbose > 0)
+	  printf(" No attractor IC for lambda = %.3e ! \n ",scf_lambda);
+      }
+      pvecback_integration[pba->index_bi_phi_prime_scf] = 2*pvecback_integration[pba->index_bi_a]*
+        sqrt(V_scf(pba,pvecback_integration[pba->index_bi_phi_scf]))*pba->phi_prime_ini_scf;
+    }
 
   /** - Fix initial value of \f$ \phi, \phi' \f$
    * set directly in the radiation attractor => fixes the units in terms of rho_ur
@@ -2334,6 +2423,16 @@ int background_output_titles(struct background * pba,
     
 // EDE-edit: Add scf potential without the CC
   class_store_columntitle(titles,"V_e_scf",pba->has_scf);
+  
+  class_store_columntitle(titles,"(.)rho_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"(.)p_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"(.)p_prime_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"phi_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"phi'_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"V_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"V'_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"V''_scf",pba->has_k_essence);
+  class_store_columntitle(titles,"V_e_scf",pba->has_k_essence);
 
   class_store_columntitle(titles,"(.)rho_tot",_TRUE_);
   class_store_columntitle(titles,"(.)p_tot",_TRUE_);
@@ -2394,6 +2493,16 @@ int background_output_data(
       
     //  EDE-edit: Add scalar field potential without the CC
     class_store_double(dataptr,pvecback[pba->index_bg_V_e_scf],pba->has_scf,storeidx);
+    
+    class_store_double(dataptr,pvecback[pba->index_bg_rho_kessence],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_p_kessence],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_p_prime_kessence],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_phi_scf],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_phi_prime_scf],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_V_scf],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_dV_scf],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_ddV_scf],pba->has_k_essence,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_V_e_scf],pba->has_k_essence,storeidx);
 
     class_store_double(dataptr,pvecback[pba->index_bg_rho_tot],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_p_tot],_TRUE_,storeidx);
@@ -2500,6 +2609,14 @@ int background_derivs(
   }
 
   if (pba->has_scf == _TRUE_){
+    /** - Scalar field equation: \f$ \phi'' + 2 a H \phi' + a^2 dV = 0 \f$  (note H is wrt cosmic time) */
+    dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf];
+    dy[pba->index_bi_phi_prime_scf] = - y[pba->index_bi_a]*
+      (2*pvecback[pba->index_bg_H]*y[pba->index_bi_phi_prime_scf]
+       + y[pba->index_bi_a]*dV_scf(pba,y[pba->index_bi_phi_scf])) ;
+  }
+  
+  if (pba->has_k_essence == _TRUE_){
     /** - Scalar field equation: \f$ \phi'' + 2 a H \phi' + a^2 dV = 0 \f$  (note H is wrt cosmic time) */
     dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf];
     dy[pba->index_bi_phi_prime_scf] = - y[pba->index_bi_a]*
@@ -2680,7 +2797,7 @@ int background_output_budget(struct background* pba){
       }
     }
 
-    if(pba->has_lambda || pba->has_fld || pba->has_scf || pba->has_curvature){
+    if(pba->has_lambda || pba->has_fld || pba->has_scf || pba->has_curvature || pba->has_k_essence){
       printf(" ---> Other Content \n");
     }
     if(pba->has_lambda){
@@ -2695,6 +2812,11 @@ int background_output_budget(struct background* pba){
       _class_print_species_("Scalar Field",scf);
       budget_other+=pba->Omega0_scf;
     }
+    
+    if(pba->has_k_essence){
+      _class_print_species_("Scalar Field",k_essence);
+      budget_other+=pba->Omega0_kessence;
+    }
     if(pba->has_curvature){
       _class_print_species_("Spatial Curvature",k);
       budget_other+=pba->Omega0_k;
@@ -2706,7 +2828,7 @@ int background_output_budget(struct background* pba){
     if(pba->N_ncdm > 0){
       printf(" Neutrinos                        Omega = %-15g , omega = %-15g \n",budget_neutrino,budget_neutrino*pba->h*pba->h);
     }
-    if(pba->has_lambda || pba->has_fld || pba->has_scf || pba->has_curvature){
+    if(pba->has_lambda || pba->has_fld || pba->has_scf || pba->has_curvature || pba->has_k_essence){
       printf(" Other Content                    Omega = %-15g , omega = %-15g \n",budget_other,budget_other*pba->h*pba->h);
     }
     printf(" TOTAL                            Omega = %-15g , omega = %-15g \n",budget_radiation+budget_matter+budget_neutrino+budget_other,(budget_radiation+budget_matter+budget_neutrino+budget_other)*pba->h*pba->h);
