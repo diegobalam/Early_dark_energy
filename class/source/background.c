@@ -375,7 +375,8 @@ int background_functions(
     pvecback[pba->index_bg_dV_scf] = dV_scf(pba,phi); // dV_scf(pba,phi); //potential' as function of phi
     pvecback[pba->index_bg_ddV_scf] = ddV_scf(pba,phi); // ddV_scf(pba,phi); //potential'' as function of phi
  //k_essence 
- //H function and derivties	  
+ //H function and derivties
+    pvecback[pba->index_bg_y_kessence]=X/y	  
     pvecback[pba->index_bg_h_kessence]=h_y
     pvecback[pba->index_bg_dh_phi_kessence]=dh_y_phi
     pvecback[pba->index_bg_dh_x_kessence]=dh_y_x
@@ -2738,6 +2739,27 @@ double ddV_scf(
   return ddV_e_scf(pba,phi);
 }
 
+double h_y(struct background *pba,
+                 double phi
+                 ) {
+  //double scf_lambda = pba->scf_parameters[0];
+  //  double scf_alpha  = pba->scf_parameters[1];
+  //  double scf_A      = pba->scf_parameters[2];
+  //  double scf_B      = pba->scf_parameters[3];
+
+  return X/V_scf;
+}
+
+double h_y(struct background *pba,
+                 double phi
+                 ) {
+  //double scf_lambda = pba->scf_parameters[0];
+  //  double scf_alpha  = pba->scf_parameters[1];
+  //  double scf_A      = pba->scf_parameters[2];
+  //  double scf_B      = pba->scf_parameters[3];
+
+  return X/V_scf;
+}
 
 /**
  * Function outputting the fractions Omega of the total critical density
