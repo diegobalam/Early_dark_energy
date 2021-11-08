@@ -1198,7 +1198,7 @@ int input_read_parameters(
       /* EDE-edit: params except f and m */
     pba->scf_parameters[0] = param2;
     pba->scf_parameters[3] = param5;
-    pba->scf_parameters[4] = param6;
+    /*pba->scf_parameters[4] = param6;*/
       
      /* f or logf*/
     class_call(parser_read_double(pfc,"log10f_scf",&param31,&flag31,errmsg),errmsg,errmsg);
@@ -1265,8 +1265,9 @@ int input_read_parameters(
           /* pba->phi_ini_scf = pba->scf_parameters[pba->scf_parameters_size-2]; */
           /* EDE-edit:
            Define Theta_i=scf_parameters[pba->scf_parameters_size-2], and f=scf_parameters[pba->scf_parameters_size-5] , such that phi_i =Theta_i f . Note that this needs an additional numerical factor to change phi from eV of Mpl (reduced Planck mass).*/
-          pba->phi_ini_scf = pba->scf_parameters[pba->scf_parameters_size-5]*pba->scf_parameters[pba->scf_parameters_size-2]*1/(2.435*1e27);
-          pba->phi_prime_ini_scf = pba->scf_parameters[pba->scf_parameters_size-1];
+          /*pba->phi_ini_scf = pba->scf_parameters[pba->scf_parameters_size-5]*pba->scf_parameters[pba->scf_parameters_size-2]*1/(2.435*1e27);*/
+          pba->phi_ini_scf = pba->scf_parameters[pba->scf_parameters_size-5]*1/(2.435*1e27);
+	  pba->phi_prime_ini_scf = pba->scf_parameters[pba->scf_parameters_size-1];
       }
     }
   }
@@ -3043,7 +3044,7 @@ int input_default_params(
   pba->f_scf = 3.973e26;
   pba->m_scf = 5.329e-27;
   pba->CC_scf = 1;
-  pba->thetai_scf = 2.64;
+  /*pba->thetai_scf = 2.64;*/
     /* EDE-edit: default values for fEDE, z_c */
   
   pba->fEDE= 0.1;
@@ -3910,35 +3911,39 @@ int input_get_guess(double *xguess,
     /* EDE-edit: added fEDE and z_c. Below "guess" is log_fscf[fEDE] and log10m[z_c]. 
 	Guess functions based on Smith et al. 1908.06995, Appendix A. */
     case tn_fEDE:
-      thetaitemp=ba.scf_parameters[ba.scf_parameters_size-2];
+      /*thetaitemp=ba.scf_parameters[ba.scf_parameters_size-2];
       n_scftemp=ba.scf_parameters[0];
       fcnA2=4*.2*thetaitemp*pow(1-cos(thetaitemp),-1.*n_scftemp)*(1/(3*n_scftemp))*(5*pow(1-cos(0.8*thetaitemp),n_scftemp)*tan(thetaitemp*.5) + 2*0.2*n_scftemp*thetaitemp*pow(1-cos(thetaitemp),n_scftemp));
       fcnA4=3*.2*thetaitemp*pow(1-cos(thetaitemp),-1.*n_scftemp)*(1/(2*n_scftemp))*(3*pow(1-cos(0.8*thetaitemp),n_scftemp)*tan(thetaitemp*.5) + 0.2*n_scftemp*thetaitemp*pow(1-cos(thetaitemp),n_scftemp));
-            
+        */    
       if (pow(10.,pfzw->target_value[index_guess+1]) > 3500){
-            xguess[index_guess] = log10(2.435e27*pow(pfzw->target_value[index_guess],.5)*pow(fcnA2,-0.5));
+            /*xguess[index_guess] = log10(2.435e27*pow(pfzw->target_value[index_guess],.5)*pow(fcnA2,-0.5));*/
+	    xguess[index_guess] = log10(2.435e27*pow(pfzw->target_value[index_guess],.5)*pow(2,-0.5));  
            dxdy[index_guess] = 0.217147*(1/pfzw->target_value[index_guess]);
          
           }
           
       if (pow(10.,pfzw->target_value[index_guess+1]) <= 3500){
-           xguess[index_guess] = log10(2.435e27*pow(fcnA4,-0.5)*pow(pfzw->target_value[index_guess],0.5));
+           /*xguess[index_guess] = log10(2.435e27*pow(fcnA4,-0.5)*pow(pfzw->target_value[index_guess],0.5)); */  
+	   xguess[index_guess] = log10(2.435e27*pow(2,-0.5)*pow(pfzw->target_value[index_guess],0.5));   
           dxdy[index_guess] = 0.217147*(1/pfzw->target_value[index_guess]);
             }
         
       break;
         
     case tn_z_c:
-      thetaitemp=ba.scf_parameters[ba.scf_parameters_size-2];
+      /*thetaitemp=ba.scf_parameters[ba.scf_parameters_size-2];
       n_scftemp=ba.scf_parameters[0];
       fcnA1= 20.*.2*thetaitemp*(1.e-4)*pow(1-cos(thetaitemp),-1.*n_scftemp)*(1/n_scftemp)*tan(thetaitemp*.5);
-      fcnA3=27.*.2*thetaitemp*.27*pow(1-cos(thetaitemp),-1.*n_scftemp)*(1/(2*n_scftemp))*tan(thetaitemp*.5);
+      fcnA3=27.*.2*thetaitemp*.27*pow(1-cos(thetaitemp),-1.*n_scftemp)*(1/(2*n_scftemp))*tan(thetaitemp*.5);*/
       if (pow(10.,pfzw->target_value[index_guess]) > 3500){
-        xguess[index_guess] = log10(2.*pow(1/0.6,2.)*1.e-33*pow(fcnA1,0.5))+2.*pfzw->target_value[index_guess];
+        /*xguess[index_guess] = log10(2.*pow(1/0.6,2.)*1.e-33*pow(fcnA1,0.5))+2.*pfzw->target_value[index_guess];*/
+	xguess[index_guess] = log10(2.*pow(1/0.6,2.)*1.e-33*pow(2,0.5))+2.*pfzw->target_value[index_guess];      
         dxdy[index_guess] = 2.;
       }
       if (pow(10.,pfzw->target_value[index_guess]) < 3500){
-        xguess[index_guess] = log10(pow(1/0.6,1.5)*1.e-33*pow(fcnA3,0.5))+1.5*pfzw->target_value[index_guess];
+        /*xguess[index_guess] = log10(pow(1/0.6,1.5)*1.e-33*pow(fcnA3,0.5))+1.5*pfzw->target_value[index_guess];*/
+	xguess[index_guess] = log10(pow(1/0.6,1.5)*1.e-33*pow(fcnA3,0.5))+1.5*pfzw->target_value[index_guess];      
         dxdy[index_guess] = 1.5;
             }
       break;
