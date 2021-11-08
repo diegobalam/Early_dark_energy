@@ -2260,7 +2260,7 @@ int background_find_f_and_zc(
     
     pba->z_c = zc;
     pba->fEDE = fmax;
-    pba->thetai_scf = pba->scf_parameters[4];
+    /*pba->thetai_scf = pba->scf_parameters[4];*/
     /* EDE-edit: added log10zc */
     /* pba->log10z_c = log10(zc); */
     pba->log10z_c = log10(zc);
@@ -2273,7 +2273,7 @@ int background_find_f_and_zc(
         printf("    corresponding to f_EDE = %f \n",pba->fEDE);
         printf(" with log10m_scf = %f\n",log10(pba->scf_parameters[2]));
         printf("  and log10f_scf= %f \n",log10(pba->scf_parameters[1]));
-        printf("  thetai= %f \n",pba->thetai_scf);
+        /*printf("  thetai= %f \n",pba->thetai_scf);*/
         
     }
     
@@ -2512,21 +2512,6 @@ int background_derivs(
 }
 
 /**
- * Scalar field potential and its derivatives with respect to the field _scf
- * For Albrecht & Skordis model: 9908085
- * - \f$ V = V_{p_{scf}}*V_{e_{scf}} \f$
- * - \f$ V_e =  \exp(-\lambda \phi) \f$ (exponential)
- * - \f$ V_p = (\phi - B)^\alpha + A \f$ (polynomial bump)
- *
- * TODO:
- * - Add some functionality to include different models/potentials (tuning would be difficult, though)
- * - Generalize to Kessence/Horndeski/PPF and/or couplings
- * - A default module to numerically compute the derivatives when no analytic functions are given should be added.
- * - Numerical derivatives may further serve as a consistency check.
- *
- */
-
-/**
  *
  * The units of phi, tau in the derivatives and the potential V are the following:
  * - phi is given in units of the reduced Planck mass \f$ m_{pl} = (8 \pi G)^{(-1/2)}\f$
@@ -2534,57 +2519,106 @@ int background_derivs(
  * - the potential \f$ V(\phi) \f$ is given in units of \f$ m_{pl}^2/Mpc^2 \f$.
  * With this convention, we have
  * \f$ \rho^{class} = (8 \pi G)/3 \rho^{physical} = 1/(3 m_{pl}^2) \rho^{physical} = 1/3 * [ 1/(2a^2) (\phi')^2 + V(\phi) ] \f$
-    and \f$ \rho^{class} \f$ has the proper dimension \f$ Mpc^-2 \f$.
+ and \f$ \rho^{class} \f$ has the proper dimension \f$ Mpc^-2 \f$.
+*/
+
+double V_e_scf(struct background *pba,
+               double phi
+               ) {
+  double scf_lambda = pba->scf_parameters[0];
+  //  double scf_alpha  = pba->scf_parameters[1];
+  //  double scf_A      = pba->scf_parameters[2];
+  //  double scf_B      = pba->scf_parameters[3];
+
+  return  exp(-scf_lambda*phi);
+}
+
+double dV_e_scf(struct background *pba,
+                double phi
+                ) {
+  double scf_lambda = pba->scf_parameters[0];
+  //  double scf_alpha  = pba->scf_parameters[1];
+  //  double scf_A      = pba->scf_parameters[2];
+  //  double scf_B      = pba->scf_parameters[3];
+
+  return -scf_lambda*V_scf(pba,phi);
+}
+
+double ddV_e_scf(struct background *pba,
+                 double phi
+                 ) {
+  double scf_lambda = pba->scf_parameters[0];
+  //  double scf_alpha  = pba->scf_parameters[1];
+  //  double scf_A      = pba->scf_parameters[2];
+  //  double scf_B      = pba->scf_parameters[3];
+
+  return pow(-scf_lambda,2)*V_scf(pba,phi);
+}
+
+
+/** parameters and functions for the polynomial coefficient
+ * \f$ V_p = (\phi - B)^\alpha + A \f$(polynomial bump)
+ *
+ * double scf_alpha = 2;
+ *
+ * double scf_B = 34.8;
+ *
+ * double scf_A = 0.01; (values for their Figure 2)
  */
 
-/* EDE-edit: potential of the EDE field.
- 
- Here A=axion mass is units of eV, alpha = f = axion decay constant in units of eV, phi field in units of m_pl.
- The overall factor of 4152.39 arises from unit conversion. B is the CC.
- 
- V_e is the scf potential without the CC. */
-
-double V_e_scf(
+double V_p_scf(
                struct background *pba,
                double phi) {
-    double scf_lambda = pba->scf_parameters[0];
-    double scf_alpha  = pba->scf_parameters[1];
-    double scf_A      = pba->scf_parameters[2];
-    double scf_B      = pba->scf_parameters[3];
-    return 4152.39*exp(scf_lambda*phi);
+  //  double scf_lambda = pba->scf_parameters[0];
+  double scf_alpha  = pba->scf_parameters[1];
+  double scf_A      = pba->scf_parameters[2];
+  double scf_B      = pba->scf_parameters[3];
+
+  return  pow(phi - scf_B,  scf_alpha) +  scf_A;
 }
+
+double dV_p_scf(
+                struct background *pba,
+                double phi) {
+
+  //  double scf_lambda = pba->scf_parameters[0];
+  double scf_alpha  = pba->scf_parameters[1];
+  //  double scf_A      = pba->scf_parameters[2];
+  double scf_B      = pba->scf_parameters[3];
+
+  return   scf_alpha*pow(phi -  scf_B,  scf_alpha - 1);
+}
+
+double ddV_p_scf(
+                 struct background *pba,
+                 double phi) {
+  //  double scf_lambda = pba->scf_parameters[0];
+  double scf_alpha  = pba->scf_parameters[1];
+  //  double scf_A      = pba->scf_parameters[2];
+  double scf_B      = pba->scf_parameters[3];
+
+  return  scf_alpha*(scf_alpha - 1.)*pow(phi -  scf_B,  scf_alpha - 2);
+}
+
+/** Fianlly we can obtain the overall potential \f$ V = V_p*V_e \f$
+ */
 
 double V_scf(
              struct background *pba,
              double phi) {
-    double scf_lambda = pba->scf_parameters[0];
-    double scf_alpha  = pba->scf_parameters[1];
-    double scf_A      = pba->scf_parameters[2];
-    double scf_B      = pba->scf_parameters[3];
-    return 4152.39*exp(scf_lambda*phi) + scf_B*3.968e-8 ;
+  return  V_e_scf(pba,phi);
 }
 
 double dV_scf(
               struct background *pba,
               double phi) {
-    double scf_lambda = pba->scf_parameters[0];
-    double scf_alpha  = pba->scf_parameters[1];
-    double scf_A      = pba->scf_parameters[2];
-    double scf_B      = pba->scf_parameters[3];
-    return -scf_lambda*4152.39*exp(scf_lambda*phi);
+  return dV_e_scf(pba,phi);
 }
 
 double ddV_scf(
                struct background *pba,
                double phi) {
-    double scf_lambda = pba->scf_parameters[0];
-    double scf_alpha  = pba->scf_parameters[1];
-    double scf_A      = pba->scf_parameters[2];
-    double scf_B      = pba->scf_parameters[3];
-    
-    return
-    scf_lambda*scf_lambda*4152.39*exp(scf_lambda*phi) ;
-    
+  return ddV_e_scf(pba,phi);
 }
 
 
