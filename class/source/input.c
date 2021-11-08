@@ -630,6 +630,9 @@ int input_read_parameters(
   int flag31,flag32,flag41,flag42; /* EDE-edit: for logf vs f and logm vs m*/
   double param31,param32,param41,param42; /* EDE-edit: for logf vs f and logm vs m*/
     //
+  double param_kessence;
+  int flag_kessence;
+  char string_kessence[_ARGUMENT_LENGTH_MAX_];
   int N_ncdm=0,n,entries_read;
   int int1,fileentries;
   double scf_lambda;
@@ -1066,8 +1069,12 @@ int input_read_parameters(
   class_call(parser_read_double(pfc,"Omega_scf",&param3,&flag3,errmsg),
              errmsg,
              errmsg);
+	    
+  class_call(parser_read_double(pfc,"Omega_kessence",&param4,&flag4,errmsg),
+             errmsg,
+             errmsg);
 
-  class_test((flag1 == _TRUE_) && (flag2 == _TRUE_) && ((flag3 == _FALSE_) || (param3 >= 0.)),
+  class_test((flag1 == _TRUE_) && (flag2 == _TRUE_) && ((flag3 == _FALSE_) && (flag4==_FALSE_) || (param4 >= 0.)),
              errmsg,
              "In input file, either Omega_Lambda or Omega_fld must be left unspecified, except if Omega_scf is set and <0.0, in which case the contribution from the scalar field will be the free parameter.");
 
@@ -1094,6 +1101,11 @@ int input_read_parameters(
     pba->Omega0_scf = param3;
     Omega_tot += pba->Omega0_scf;
   }
+  
+  if ((flag4 == _TRUE_) && (param4 >= 0.)){
+    pba->Omega0_kessence = param4;
+    Omega_tot += pba->Omega0_kessence;
+  }
   /* Step 2 */
   if (flag1 == _FALSE_) {
     //Fill with Lambda
@@ -1110,12 +1122,19 @@ int input_read_parameters(
     pba->Omega0_scf = 1. - pba->Omega0_k - Omega_tot;
     if (input_verbose > 0) printf(" -> matched budget equations by adjusting Omega_scf = %e\n",pba->Omega0_scf);
   }
+  
+  else if ((flag4 == _TRUE_) && (param4 < 0.)){
+    // Fill up with scalar field
+    pba->Omega0_kessence = 1. - pba->Omega0_k - Omega_tot;
+    if (input_verbose > 0) printf(" -> matched budget equations by adjusting Omega_kessence = %e\n",pba->Omega0_kessence);
+  }
 
   /*
-  fprintf(stderr,"%e %e %e %e %e\n",
+  fprintf(stderr,"%e %e %e %e %e %e\n",
           pba->Omega0_lambda,
           pba->Omega0_fld,
           pba->Omega0_scf,
+	  pba->Omega0_kessence;
           pba->Omega0_k,
           Omega_tot);
   */
@@ -1271,7 +1290,103 @@ int input_read_parameters(
       }
     }
   }
+  
+  /* Additional kessence parameters: */
+  if (pba->Omega0_kessence != 0.){
+    /** - Read parameters describing scalar field potential */
+    class_call(parser_read_list_of_doubles(pfc,
+                                           "kessence_parameters",
+                                           &(pba->kessence_parameters_size),
+                                           &(pba->kessence_parameters),
+                                           &flag1,
+                                           errmsg),
+               errmsg,errmsg);
+      
+      // EDE-edit: making Cobaya happy. EM: change f,m --> logf, logm
+      
+    class_call(parser_read_double(pfc,"n_scf",&param2,&flag2,errmsg),errmsg,errmsg);
+    class_call(parser_read_double(pfc,"CC_scf",&param5,&flag5,errmsg),errmsg,errmsg);
+    class_call(parser_read_double(pfc,"thetai_scf",&param6,&flag6,errmsg),errmsg,errmsg);
+      
+      /* EDE-edit: params except f and m */
+    pba->scf_parameters[0] = param2;
+    pba->scf_parameters[3] = param5;
+    pba->scf_parameters[4] = param6;
+      
+     /* f or logf*/
+    class_call(parser_read_double(pfc,"log10f_scf",&param31,&flag31,errmsg),errmsg,errmsg);
+    class_call(parser_read_double(pfc,"f_scf",&param32,&flag32,errmsg),errmsg,errmsg);
+    class_test((flag31 == _TRUE_) && (flag32 == _TRUE_),
+             errmsg,
+             "In input file, you cannot enter both logf and f, choose one");
+    if (flag31 == _TRUE_) {
+      pba->scf_parameters[1] = pow(10,param31);
+    }
+    if (flag32 == _TRUE_) {
+     pba->scf_parameters[1] = param32;
+    }
 
+     /* m or logm*/
+    class_call(parser_read_double(pfc,"log10m_scf",&param41,&flag41,errmsg),errmsg,errmsg);
+    class_call(parser_read_double(pfc,"m_scf",&param42,&flag42,errmsg),errmsg,errmsg);
+    class_test((flag41 == _TRUE_) && (flag42 == _TRUE_),
+             errmsg,
+             "In input file, you cannot enter both logm and m, choose one");
+    if (flag41 == _TRUE_) {
+      pba->scf_parameters[2] = pow(10,param41);
+    }
+    if (flag42 == _TRUE_) {
+     pba->scf_parameters[2] = param42;
+    }
+      
+
+      
+
+    
+
+      
+      
+      
+    class_read_int("kessence_tuning_index",pba->kessence_tuning_index);
+    class_test(pba->kessence_tuning_index >= pba->kessence_parameters_size,
+               errmsg,
+               "Tuning index kessence_tuning_index = %d is larger than the number of entries %d in scf_parameters. Check your .ini file.",pba->kessence_tuning_index,pba->scf_parameters_size);
+    /** - Assign shooting parameter */
+    class_read_double("kessence_shooting_parameter",pba->kessence_parameters[pba->kessence_tuning_index]);
+
+    scf_lambda = pba->kessence_parameters[0];
+    if ((fabs(scf_lambda) <3.)&&(pba->background_verbose>1))
+      printf("lambda = %e <3 won't be tracking (for exp quint) unless overwritten by tuning function\n",scf_lambda);
+
+    class_call(parser_read_string(pfc,
+                                  "attractor_ic_kessence",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+                errmsg,
+                errmsg);
+
+    if (flag1 == _TRUE_){
+      if((strstr(string1,"y") != NULL) || (strstr(string1,"Y") != NULL)){
+        pba->attractor_ic_kessence = _TRUE_;
+      }
+      else{
+        pba->attractor_ic_kessence = _FALSE_;
+        class_test(pba->kessence_parameters_size<2,
+               errmsg,
+               "Since you are not using attractor initial conditions, you must specify phi and its derivative phi' as the last two entries in scf_parameters. See explanatory.ini for more details.");
+          /* pba->phi_ini_kessence = pba->scf_parameters[pba->kessence_parameters_size-2]; */
+          /* EDE-edit:
+           Define Theta_i=scf_parameters[pba->scf_parameters_size-2], and f=scf_parameters[pba->scf_parameters_size-5] , such that phi_i =Theta_i f . Note that this needs an additional numerical factor to change phi from eV of Mpl (reduced Planck mass).*/
+          /*pba->phi_ini_scf = pba->scf_parameters[pba->scf_parameters_size-5]*pba->scf_parameters[pba->scf_parameters_size-2]*1/(2.435*1e27);*/
+          pba->phi_ini_scf = pba->kessence_parameters[pba->kessence_parameters_size-5]*1/(2.435*1e27);
+	  pba->phi_prime_ini_scf = pba->kessence_parameters[pba->kessence_parameters_size-1];
+      }
+    }
+  }
+  
+  
+  
   /** (b) assign values to thermodynamics cosmological parameters */
 
   /** - primordial helium fraction */
@@ -3038,6 +3153,17 @@ int input_default_params(
   //MZ: initial conditions are as multiplicative factors of the radiation attractor values
   pba->phi_ini_scf = 1;
   pba->phi_prime_ini_scf = 1;
+  
+  //kessence
+  
+  pba->Omega0_kessence = 0.; /* Scalar field defaults */
+  pba->attractor_ic_kessence = _TRUE_;
+  pba->kessence_parameters = NULL;
+  pba->kessence_parameters_size = 0;
+  pba->kessence_tuning_index = 0;
+  //MZ: initial conditions are as multiplicative factors of the radiation attractor values
+  pba->phi_ini_scf = 1;
+  pba->phi_prime_ini_scf = 1;
     
   // EDE-edit: Added scf parameters by hand to make Cobaya happy
   pba->n_scf = 3;
@@ -3679,6 +3805,12 @@ int input_try_unknown_parameters(double * unknown_parameter,
       output[i] = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_scf]/(ba.H0*ba.H0)
         -ba.Omega0_scf;
       break;
+    case Omega_kessence:
+      /** - In case scalar field is used to fill, pba->Omega0_scf is not equal to pfzw->target_value[i].*/
+      output[i] = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_kessence]/(ba.H0*ba.H0)
+        -ba.Omega0_kessence;
+      break;  
+		    
     case Omega_ini_dcdm:
     case omega_ini_dcdm:
       rho_dcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dcdm];
@@ -3880,6 +4012,26 @@ int input_get_guess(double *xguess,
         dxdy[index_guess] = 1.;
       }
       break;
+		   
+    case Omega_scf:
+
+ /** - This guess is arbitrary, something nice using WKB should be implemented.
+  *
+  * - Version 2: use a fit: `xguess[index_guess] = 1.77835*pow(ba.Omega0_scf,-2./7.);
+  * dxdy[index_guess] = -0.5081*pow(ba.Omega0_scf,-9./7.)`;
+  *
+  * - Version 3: use attractor solution */
+
+      if (ba.kessence_tuning_index == 0){
+        xguess[index_guess] = sqrt(3.0/ba.Omega0_scf);
+        dxdy[index_guess] = -0.5*sqrt(3.0)*pow(ba.Omega0_kessence,-1.5);
+      }
+      else{
+        /* Default: take the passed value as xguess and set dxdy to 1. */
+        xguess[index_guess] = ba.kessence_parameters[ba.kessence_tuning_index];
+        dxdy[index_guess] = 1.;
+      }
+      break;
     case omega_ini_dcdm:
       Omega0_dcdmdr = 1./(ba.h*ba.h);
     case Omega_ini_dcdm:
@@ -4064,6 +4216,7 @@ int input_auxillary_target_conditions(struct file_content * pfc,
   case Omega_dcdmdr:
   case omega_dcdmdr:
   case Omega_scf:
+  case Omega_kessence:
   case Omega_ini_dcdm:
   case omega_ini_dcdm:
     /* Check that Omega's or omega's are nonzero: */
