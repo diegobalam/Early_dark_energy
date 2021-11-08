@@ -376,10 +376,10 @@ int background_functions(
     pvecback[pba->index_bg_ddV_scf] = ddV_scf(pba,phi); // ddV_scf(pba,phi); //potential'' as function of phi
  //k_essence 
  //H function and derivties
-    pvecback[pba->index_bg_y_kessence]=X/y	  
-    pvecback[pba->index_bg_h_kessence]=h_y
-    pvecback[pba->index_bg_dh_phi_kessence]=dh_y_phi
-    pvecback[pba->index_bg_dh_x_kessence]=dh_y_x
+    pvecback[pba->index_bg_y_kessence]=phi_prime*phi_prime/(2*a*a)/V_scf;	  
+    pvecback[pba->index_bg_h_kessence]=h_y;
+    pvecback[pba->index_bg_dh_phi_kessence]=dh_y_phi;
+    pvecback[pba->index_bg_dh_x_kessence]=dh_y_x;
  //Density and pressure  	  
     pvecback[pba->index_bg_rho_k_essence] = (-phi_prime*phi_prime/(2*a*a)-h_y*V_essence(pba,phi) +2*phi_prime*phi_prime/(2*a*a)*(1+dh_y_x*V_essence(pba,phi)))/3.; // energy of the kessence field. The field units are set automatically by setting the initial conditions
     pvecback[pba->index_bg_p_kessence] =(phi_prime*phi_prime/(2*a*a) + h_y*V_kessence(pba,phi))/3.; // pressure of the kessence field
@@ -2739,26 +2739,39 @@ double ddV_scf(
   return ddV_e_scf(pba,phi);
 }
 
+
 double h_y(struct background *pba,
                  double phi
                  ) {
   //double scf_lambda = pba->scf_parameters[0];
-  //  double scf_alpha  = pba->scf_parameters[1];
-  //  double scf_A      = pba->scf_parameters[2];
-  //  double scf_B      = pba->scf_parameters[3];
+    double scf_alpha  = pba->scf_parameters[1];
+    double scf_beta      = pba->scf_parameters[2];
+    double n      = pba->scf_parameters[3];
 
-  return X/V_scf;
+  return -scf_alpha*pow((phi_prime*phi_prime/(2*a*a)/V_scf-scf_beta),n);
 }
 
-double h_y(struct background *pba,
+double dh_y_x(struct background *pba,
                  double phi
                  ) {
   //double scf_lambda = pba->scf_parameters[0];
-  //  double scf_alpha  = pba->scf_parameters[1];
-  //  double scf_A      = pba->scf_parameters[2];
-  //  double scf_B      = pba->scf_parameters[3];
+    double scf_alpha  = pba->scf_parameters[1];
+    double scf_beta      = pba->scf_parameters[2];
+    double n      = pba->scf_parameters[3];
 
-  return X/V_scf;
+  return -n*scf_alpha*pow((phi_prime*phi_prime/(2*a*a)/V_scf-scf_beta),n-1)*(1/V_scf);
+}
+
+
+double dh_y_phi(struct background *pba,
+                 double phi
+                 ) {
+  //double scf_lambda = pba->scf_parameters[0];
+    double scf_alpha  = pba->scf_parameters[1];
+    double scf_beta      = pba->scf_parameters[2];
+    double n      = pba->scf_parameters[3];
+
+  return n*scf_alpha*pow((phi_prime*phi_prime/(2*a*a)/V_scf-scf_beta),n-1)*(phi_prime*phi_prime/(2*a*a)/pow(V_scf,2));
 }
 
 /**
