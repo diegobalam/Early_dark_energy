@@ -381,8 +381,8 @@ int background_functions(
     pvecback[pba->index_bg_dh_phi_kessence]=dh_y_phi;
     pvecback[pba->index_bg_dh_x_kessence]=dh_y_x;
  //Density and pressure  	  
-    pvecback[pba->index_bg_rho_k_essence] = (-phi_prime*phi_prime/(2*a*a)-h_y*V_essence(pba,phi) +2*phi_prime*phi_prime/(2*a*a)*(1+dh_y_x*V_essence(pba,phi)))/3.; // energy of the kessence field. The field units are set automatically by setting the initial conditions
-    pvecback[pba->index_bg_p_kessence] =(phi_prime*phi_prime/(2*a*a) + h_y*V_kessence(pba,phi))/3.; // pressure of the kessence field
+    pvecback[pba->index_bg_rho_k_essence] = (-phi_prime*phi_prime/(2*a*a)-h_y*V_scf(pba,phi) +2*phi_prime*phi_prime/(2*a*a)*(1+dh_y_x*V_scf(pba,phi)))/3.; // energy of the kessence field. The field units are set automatically by setting the initial conditions
+    pvecback[pba->index_bg_p_kessence] =(phi_prime*phi_prime/(2*a*a) + h_y*V_scf(pba,phi))/3.; // pressure of the kessence field
     rho_tot += pvecback[pba->index_bg_rho_kessence];
     p_tot += pvecback[pba->index_bg_p_kessence];
     dp_dloga += 0.0; /** <-- This depends on a_prime_over_a, so we cannot add it now! */
@@ -491,6 +491,13 @@ int background_functions(
       (-pvecback[pba->index_bg_phi_prime_scf]*pvecback[pba->index_bg_H]/a-2./3.*pvecback[pba->index_bg_dV_scf]);
     pvecback[pba->index_bg_p_tot_prime] += pvecback[pba->index_bg_p_prime_scf];
   }
+	
+  if (pba->has_k_essence == _TRUE_){
+    /** The contribution of scf was not added to dp_dloga, add p_scf_prime here: */
+    pvecback[pba->index_bg_p_prime_kessence] = pvecback[pba->index_bg_phi_prime_scf]*
+      (-pvecback[pba->index_bg_phi_prime_scf]*pvecback[pba->index_bg_H]/a-2./3.*pvecback[pba->index_bg_dV_scf]);
+    pvecback[pba->index_bg_p_tot_prime] += pvecback[pba->index_bg_p_prime_kessence];
+  }
 
                              /* EDE-edit:*/
 /** - compute scf fraction density. Note the factor of 1/3 in going from V-->rho. */
@@ -508,13 +515,7 @@ int background_functions(
                "fEDE = %e instead of < 0.5",pvecback[pba->index_bg_V_e_scf]/pvecback[pba->index_bg_rho_crit]/3 );
   }
 	
-  if (pba->has_k_essence == _TRUE_){
-    /** The contribution of scf was not added to dp_dloga, add p_scf_prime here: */
-    pvecback[pba->index_bg_p_prime_kessence] = pvecback[pba->index_bg_phi_prime_scf]*
-      (-pvecback[pba->index_bg_phi_prime_scf]*pvecback[pba->index_bg_H]/a-2./3.*pvecback[pba->index_bg_dV_scf]);
-    pvecback[pba->index_bg_p_tot_prime] += pvecback[pba->index_bg_p_prime_kessence];
-  }
-	
+ 
                        
                              
                              
@@ -2158,6 +2159,34 @@ int background_initial_conditions(
    * - is rho_ur all there is early on?
    */
   if(pba->has_scf == _TRUE_){
+    scf_lambda = pba->scf_parameters[0];
+    if(pba->attractor_ic_scf == _TRUE_){
+      pvecback_integration[pba->index_bi_phi_scf] = -1/scf_lambda*
+        log(rho_rad*4./(3*pow(scf_lambda,2)-12))*pba->phi_ini_scf;
+      if (3.*pow(scf_lambda,2)-12. < 0){
+        /** - --> If there is no attractor solution for scf_lambda, assign some value. Otherwise would give a nan.*/
+    	pvecback_integration[pba->index_bi_phi_scf] = 1./scf_lambda;//seems to the work
+	if (pba->background_verbose > 0)
+	  printf(" No attractor IC for lambda = %.3e ! \n ",scf_lambda);
+      }
+      pvecback_integration[pba->index_bi_phi_prime_scf] = 2*pvecback_integration[pba->index_bi_a]*
+        sqrt(V_scf(pba,pvecback_integration[pba->index_bi_phi_scf]))*pba->phi_prime_ini_scf;
+    }
+    else{
+      /* printf("Not using attractor initial conditions\n"); */
+      /** - --> If no attractor initial conditions are assigned, gets the provided ones. */
+      pvecback_integration[pba->index_bi_phi_scf] = pba->phi_ini_scf;
+      pvecback_integration[pba->index_bi_phi_prime_scf] = pba->phi_prime_ini_scf;
+    }
+    class_test(!isfinite(pvecback_integration[pba->index_bi_phi_scf]) ||
+               !isfinite(pvecback_integration[pba->index_bi_phi_scf]),
+               pba->error_message,
+               "initial phi = %e phi_prime = %e -> check initial conditions",
+               pvecback_integration[pba->index_bi_phi_scf],
+               pvecback_integration[pba->index_bi_phi_scf]);
+  }
+  
+  if(pba->has_k_essence == _TRUE_){
     scf_lambda = pba->scf_parameters[0];
     if(pba->attractor_ic_scf == _TRUE_){
       pvecback_integration[pba->index_bi_phi_scf] = -1/scf_lambda*
